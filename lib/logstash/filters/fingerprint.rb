@@ -40,6 +40,10 @@ class LogStash::Filters::Fingerprint < LogStash::Filters::Base
   # When set to `true`, the `SHA1`, `SHA256`, `SHA384`, `SHA512` and `MD5` fingerprint methods will produce
   # base64 encoded rather than hex encoded strings.
   config :base64encode, :validate => :boolean, :default => false
+  
+  # When set to `true`, the `SHA1`, `SHA256`, `SHA384`, `SHA512` and `MD5` fingerprint methods will produce
+  # base64 URL and Filename Safe Alphabet encoded strings when base64encode is set to `true`.
+  config :base64encode_urlsafe, :validate => :boolean, :default => false
 
   # The fingerprint method to use.
   #
@@ -156,14 +160,23 @@ class LogStash::Filters::Fingerprint < LogStash::Filters::Base
     # in JRuby 1.7.11 outputs as ASCII-8BIT
     if @key.nil?
       if @base64encode
-        @digest.base64digest(data.to_s).force_encoding(Encoding::UTF_8)
+        hash = @digest.digest(data.to_s)
+        if @base64encode_urlsafe
+          Base64.urlsafe_encode64(hash).force_encoding(Encoding::UTF_8)
+        else
+          Base64.strict_encode64(hash).force_encoding(Encoding::UTF_8)
+        end
       else
         @digest.hexdigest(data.to_s).force_encoding(Encoding::UTF_8)
       end
     else
       if @base64encode
         hash = OpenSSL::HMAC.digest(@digest, @key, data.to_s)
-        Base64.strict_encode64(hash).force_encoding(Encoding::UTF_8)
+        if @base64encode_urlsafe
+          Base64.urlsafe_encode64(hash).force_encoding(Encoding::UTF_8)
+        else
+          Base64.strict_encode64(hash).force_encoding(Encoding::UTF_8)
+        end
       else
         OpenSSL::HMAC.hexdigest(@digest, @key, data.to_s).force_encoding(Encoding::UTF_8)
       end
